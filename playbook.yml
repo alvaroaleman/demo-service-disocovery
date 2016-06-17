@@ -1,6 +1,16 @@
 ---
 - hosts: all
   tasks:
+    - name: Add bashalias
+      with_items:
+        - 'd=docker'
+        - 'l="ls -lh"'
+        - 's=systemctl'
+      become: true
+      lineinfile:
+        dest: /root/.bashrc
+        state: present
+        line: "alias {{ item }}"
     - name: Deploy unitfile with silpion registry
       become: true
       register: registed_unitfile
@@ -65,7 +75,6 @@
             consul-data: {}
           services:
             consul:
-              image: docker-registry.office.silpion.de:5000/silpion/consul
               command: [
                 "-bootstrap",
                 "-dc",
@@ -83,7 +92,26 @@
                 "-recursor",
                 "8.8.8.8"
               ]
+              image: docker-registry.office.silpion.de:5000/silpion/consul
               network_mode: host
               restart: always
               volumes:
                 - consul-data:/consul-data
+    - name: Add Registrator
+      become: true
+      docker_service:
+          state: present
+          project_name: registrator
+          definition:
+            version: "2"
+            services:
+              registrator:
+                command: [
+                "-ip={{ ansible_default_ipv4.address }}",
+                "consul://{{ ansible_default_ipv4.address }}:8500"
+                ]
+                image: gliderlabs/registrator:latest
+                network_mode: host
+                restart: always
+                volumes:
+                  - '/var/run/docker.sock:/tmp/docker.sock:rw'

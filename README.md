@@ -24,8 +24,11 @@ Consul gets polled in a 1s interval by consul-template which then creates
 a nginx.conf based on the information from Consul. When the nginx.conf changes,
 consul-template reloads nginx.
 
-
 consul-template only uses services that have a ``SERVICE_TAGS: http`` label.
+
+## LICENSE
+
+AGPv3
 
 ## Sources
 

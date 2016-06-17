@@ -1,4 +1,4 @@
-# Demo service project
+# Demo service discovery
 
 ## Synopsis
 
@@ -37,4 +37,4 @@ AGPv3
 
 ## Authors
 
-Alvaro Aleman
+* Alvaro Aleman

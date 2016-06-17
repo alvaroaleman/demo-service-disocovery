@@ -173,7 +173,7 @@
         path: "{{ testservice_basedir }}"
     - name: Run testwebservices
       become: true
-      with_sequence: count=25
+      with_sequence: count=3
       docker_service:
           state: present
           project_name: "testservice-{{ item }}"

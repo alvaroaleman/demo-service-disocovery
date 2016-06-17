@@ -1,4 +1,7 @@
 {{ range services }}{{ if in .Tags "http" }}{{ range service .Name }}
+# The service range has a different set of attributes, which is why we have to first
+# use it to get all services, limit it to the ones with tag 'http' and finally
+# get details about the service on hand
 server {
   listen 80;
   server_name {{ .Name }};

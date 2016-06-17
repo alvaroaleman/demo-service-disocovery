@@ -1,0 +1,10 @@
+{{ range services }}{{ if in .Tags "http" }}{{ range service .Name }}
+server {
+  listen 80;
+  server_name {{ .Name }};
+
+  location / {
+    include proxy_params;
+    proxy_pass http://{{.Address}}:{{.Port}};
+  }
+}{{ end }}{{ end }}{{ end }}

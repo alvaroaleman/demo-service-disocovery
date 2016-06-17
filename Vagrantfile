@@ -26,6 +26,8 @@ Vagrant.configure(2) do |config|
       config.vm.hostname = box[:name]
       config.vm.synced_folder '.', '/home/vagrant/sync', disabled: true
       config.vm.synced_folder '.', '/vagrant', id: 'vagrant-root', disabled: true
+      # http
+      config.vm.network "forwarded_port", host: 80, guest: 80
 
       config.vm.provision :ansible do |ansible|
         ansible.playbook = 'playbook.yml'

@@ -1,5 +1,8 @@
 ---
 - hosts: all
+  vars:
+    nginx_ctmpl_basedir: /usr/local/src/nginx_ctmpl
+    testservice_basedir: /usr/local/src/testservice
   tasks:
     - name: Add bashalias
       with_items:
@@ -11,36 +14,35 @@
         dest: /root/.bashrc
         state: present
         line: "alias {{ item }}"
+
+
     - name: Deploy unitfile with silpion registry
       become: true
       register: registed_unitfile
       template:
         src: templates/docker.unitfile.j2
         dest: /etc/systemd/system/docker.service
-
     - name: Reload unitfiles
       become: true
       when: registed_unitfile|changed
       command: systemctl daemon-reload
-
     - name: Deploy docker repo
       become: true
       template:
         src: templates/docker.repo.j2
         dest: /etc/yum.repos.d/docker.repo
-
     - name: Install docker
       become: true
       yum:
         state: present
         name: docker-engine
-
     - name: Enable and start docker
       become: true
       service:
         state: started
         enabled: True
         name: docker
+
 
     - name: Install docker_service module dependencies
       become: true
@@ -51,20 +53,19 @@
       yum:
         state: present
         name: "{{ item }}"
-
     - name: Install pip - must be run after epel is present
       become: true
       yum:
         state: present
         name: python-pip
-
     - name: Install docker-compose
       become: true
       pip:
         state: present
         name: docker-compose
 
-    - name: Add consul
+
+    - name: Add consul service
       become: true
       docker_service:
         state: present
@@ -90,28 +91,100 @@
                 "-domain",
                 "amasrv.com",
                 "-recursor",
-                "8.8.8.8"
+                "8.8.8.8",
+                "-ui"
               ]
               image: docker-registry.office.silpion.de:5000/silpion/consul
               network_mode: host
               restart: always
               volumes:
                 - consul-data:/consul-data
-    - name: Add Registrator
+    - name: Add Registrator service
       become: true
       docker_service:
+        state: present
+        project_name: registrator
+        definition:
+          version: "2"
+          services:
+            registrator:
+              command: [
+              "-ip={{ ansible_default_ipv4.address }}",
+              "consul://{{ ansible_default_ipv4.address }}:8500"
+              ]
+              image: gliderlabs/registrator:latest
+              network_mode: host
+              restart: always
+              volumes:
+                - '/var/run/docker.sock:/tmp/docker.sock:rw'
+
+
+    - name: Create basedir for nginx_ctmpl image
+      become: true
+      file:
+        state: directory
+        path: "{{ nginx_ctmpl_basedir }}"
+    - name: Copy buildcontext for nginx_ctmpl image
+      become: true
+      register: registed_nginx_ctmpl_copy
+      copy:
+        src: files/nginx_consul_template/
+        dest: "{{ nginx_ctmpl_basedir }}"
+    - name: Build nginx with consul image
+      become: true
+      when: registed_nginx_ctmpl_copy|changed
+      docker_image:
+        state: present
+        name: nginx_ctmpl
+        path: "{{ nginx_ctmpl_basedir }}"
+        force: true
+    - name: Run nginx with consul service
+      become: true
+      docker_service:
+        state: present
+        project_name: testwebservice
+        definition:
+          version: "2"
+          services:
+            nginx_ctmpl:
+              environment:
+                CONSUl_HOST: "{{ ansible_default_ipv4.address }}:8500"
+              image: nginx_ctmpl
+              ports:
+                - 80:80
+              restart: always
+
+
+    - name: Create basedir for testwebservice
+      become: true
+      file:
+        state: directory
+        path: "{{ testservice_basedir }}"
+    - name: Deploy Dockerfile for testwebservice
+      become: true
+      template:
+        src: templates/Dockerfile_python_webserver.j2
+        dest: "{{ testservice_basedir }}/Dockerfile"
+    - name: Build image for testwebservice
+      become: true
+      docker_image:
+        state: present
+        name: python_server
+        path: "{{ testservice_basedir }}"
+    - name: Run testwebservices
+      become: true
+      with_sequence: count=25
+      docker_service:
           state: present
-          project_name: registrator
+          project_name: "testservice-{{ item }}"
           definition:
             version: "2"
             services:
-              registrator:
-                command: [
-                "-ip={{ ansible_default_ipv4.address }}",
-                "consul://{{ ansible_default_ipv4.address }}:8500"
-                ]
-                image: gliderlabs/registrator:latest
-                network_mode: host
+              testwebservice:
+                image: python_server
+                labels:
+                  SERVICE_NAME: "web-{{ item }}"
+                  SERVICE_TAGS: http
+                ports:
+                  - 80
                 restart: always
-                volumes:
-                  - '/var/run/docker.sock:/tmp/docker.sock:rw'

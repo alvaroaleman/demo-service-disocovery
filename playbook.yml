@@ -32,3 +32,58 @@
         enabled: True
         name: docker
 
+    - name: Install docker_service module dependencies
+      become: true
+      with_items:
+        - PyYAML
+        - python-docker-py
+        - epel-release
+      yum:
+        state: present
+        name: "{{ item }}"
+
+    - name: Install pip - must be run after epel is present
+      become: true
+      yum:
+        state: present
+        name: python-pip
+
+    - name: Install docker-compose
+      become: true
+      pip:
+        state: present
+        name: docker-compose
+
+    - name: Add consul
+      become: true
+      docker_service:
+        state: present
+        project_name: consul
+        definition:
+          version: "2"
+          volumes:
+            consul-data: {}
+          services:
+            consul:
+              image: docker-registry.office.silpion.de:5000/silpion/consul
+              command: [
+                "-bootstrap",
+                "-dc",
+                "home",
+                "-node",
+                "consul",
+                "-advertise",
+                "{{ ansible_default_ipv4.address }}",
+                "-advertise-wan",
+                "{{ ansible_default_ipv4.address }}",
+                "-data-dir",
+                "/consul-data",
+                "-domain",
+                "amasrv.com",
+                "-recursor",
+                "8.8.8.8"
+              ]
+              network_mode: host
+              restart: always
+              volumes:
+                - consul-data:/consul-data

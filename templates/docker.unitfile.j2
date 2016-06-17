@@ -1,0 +1,12 @@
+[Unit]
+Description=Docker engine
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/docker daemon \
+  -H unix:///var/run/docker.sock \
+  --storage-driver=devicemapper \
+  --insecure-registry docker-registry.office.silpion.de:5000
+
+[Install]
+WantedBy=multi-user.target

@@ -1,7 +1,12 @@
+
 {{ range services }}{{ if in .Tags "http" }}{{ range service .Name }}
 # The service range has a different set of attributes, which is why we have to first
 # use it to get all services, limit it to the ones with tag 'http' and finally
 # get details about the service on hand
+log_format docker_{{ .Name }}  '{{ .Name }}: $remote_addr - $remote_user [$time_local] "$request" '
+                               '$status $body_bytes_sent "$http_referer" '
+                               '"$http_user_agent" "$http_x_forwarded_for"';
+
 server {
   listen 80;
   server_name {{ .Name }};
@@ -9,5 +14,8 @@ server {
   location / {
     include proxy_params;
     proxy_pass http://{{.Address}}:{{.Port}};
+
+    access_log /dev/stdout docker_{{ .Name }};
+    error_log /dev/stderr;
   }
 }{{ end }}{{ end }}{{ end }}
